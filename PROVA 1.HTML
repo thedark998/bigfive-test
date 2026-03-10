@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Test Big Five - 132 Domande</title>
+    <style>
+        :root { --primary: #007bff; --success: #28a745; --bg: #f4f7f9; --text: #2d3436; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; min-height: 100vh; }
+        
+        .container { width: 100%; max-width: 650px; padding: 20px; display: flex; flex-direction: column; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; }
+        
+        #progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; font-weight: bold; color: var(--primary); }
+        .progress-bar-bg { background: #e9ecef; height: 8px; border-radius: 4px; margin-bottom: 25px; overflow: hidden; }
+        .progress-bar-fill { background: var(--primary); height: 100%; width: 0%; transition: width 0.3s; }
+        
+        .question-text { font-size: 1.3rem; line-height: 1.5; margin-bottom: 30px; min-height: 90px; color: #1e272e; font-weight: 500; }
+        
+        .options { display: flex; flex-direction: column; gap: 12px; }
+        .option-btn { 
+            padding: 16px; cursor: pointer; border: 2px solid #edeff2; border-radius: 14px; 
+            background: white; transition: all 0.2s; text-align: left; font-size: 1rem;
+            display: flex; align-items: center; width: 100%;
+        }
+        .option-btn:hover { border-color: var(--primary); background: #f8fbff; }
+        .option-btn.selected { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 12px rgba(0,123,255,0.3); }
+        
+        .kb-shortcut { 
+            display: inline-block; width: 28px; height: 28px; border: 1px solid #dee2e6; 
+            border-radius: 6px; text-align: center; margin-right: 15px; font-size: 0.85rem; line-height: 26px; font-weight: bold;
+        }
+        .selected .kb-shortcut { border-color: rgba(255,255,255,0.5); }
+
+        .controls { margin-top: 35px; display: flex; justify-content: space-between; gap: 15px; }
+        .btn-nav { flex: 1; padding: 16px; border: none; border-radius: 14px; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.2s; }
+        .btn-prev { background: #f1f3f5; color: #495057; }
+        .btn-next { background: var(--primary); color: white; }
+        .btn-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .hidden { display: none; }
+        
+        /* Risultati e Revisione */
+        .trait-result { background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 12px; }
+        .bar-container { background: #dee2e6; height: 12px; border-radius: 6px; margin-top: 8px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--success); transition: width 1s ease-out; }
+        #review-list { margin-top: 20px; max-height: 400px; overflow-y: auto; border-top: 1px solid #eee; }
+        .review-item { padding: 12px; border-bottom: 1px solid #f1f1f1; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; cursor: pointer; }
+        .review-item:hover { background: #fdfdfd; }
+
+        @media (max-width: 480px) {
+            .kb-shortcut { display: none; }
+            .question-text { font-size: 1.15rem; }
+            .card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card" id="quiz-screen">
+        <div id="progress-header">
+            <span id="progress-text">Domanda 1 / 132</span>
+            <span id="percentage">0%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar"></div></div>
+        
+        <div class="question-text" id="q-text">Caricamento in corso...</div>
+        
+        <div class="options" id="options-box"></div>
+        
+        <div class="controls">
+            <button class="btn-nav btn-prev" onclick="changeQ(-1)" id="prev-btn">Indietro</button>
+            <button class="btn-nav btn-next" onclick="changeQ(1)" id="next-btn">Avanti</button>
+        </div>
+    </div>
+
+    <div class="card hidden" id="result-screen">
+        <h2 style="margin-top:0">Profilo di Personalità</h2>
+        <div id="traits-container"></div>
+        
+        <h3 style="margin-top:30px">Revisione Risposte</h3>
+        <p style="font-size:0.85rem; color:#666">Clicca su una domanda per modificarla.</p>
+        <div id="review-list"></div>
+        
+        <div class="controls" style="flex-direction: column;">
+            <button class="btn-nav btn-next" style="background: var(--success); width: 100%;" onclick="downloadReport()">Scarica Report Completo (.txt)</button>
+            <button class="btn-nav btn-prev" style="width: 100%;" onclick="backToQuiz()">Torna al test</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- DATABASE COMPLETO DELLE 132 DOMANDE ---
+// --- DATABASE COMPLETO DELLE 132 DOMANDE ---
+const questions = [
+    { id: 1, text: "Mi sembra di essere una persona attiva e vigorosa", trait: "E", rev: false },
+    { id: 2, text: "Non mi piace fare le cose ragionandoci troppo sopra", trait: "C", rev: true },
+    { id: 3, text: "Tendo a farmi esageratamente coinvolgere quando qualcuno mi racconta i suoi guai", trait: "A", rev: false },
+    { id: 4, text: "Non sono particolarmente preoccupato delle conseguenza che le mie azioni possono avere sugli altri", trait: "A", rev: true },
+    { id: 5, text: "Sono sempre informato su quello che accade nel mondo", trait: "O", rev: false },
+    { id: 6, text: "Non ho mai detto una bugia", trait: "L", rev: false },
+    { id: 7, text: "Non mi piacciono quelle attività in cui è necessario impegnarsi allo spasimo", trait: "C", rev: true },
+    { id: 8, text: "Tendo ad essere molto riflessivo", trait: "C", rev: false },
+    { id: 9, text: "Non mi capita spesso di sentirmi teso", trait: "S", rev: false },
+    { id: 10, text: "Capisco quando la gente ha bisogno del mio aiuto", trait: "A", rev: false },
+    { id: 11, text: "Non ricordo con facilità i lunghi numeri telefonici", trait: "O", rev: true },
+    { id: 12, text: "Sono sempre andato completamente d'accordo con tutti", trait: "L", rev: false },
+    { id: 13, text: "Generalmente tendo ad impormi piuttosto che accondiscendere", trait: "E", rev: false },
+    { id: 14, text: "Di fronte a grossi ostacoli non conviene insistere nel proseguire i propri obiettivi", trait: "C", rev: true },
+    { id: 15, text: "Sono piuttosto suscettibile", trait: "S", rev: true },
+    { id: 16, text: "Non è necessario comportarsi maniera cordiale con tutti", trait: "A", rev: true },
+    { id: 17, text: "Non sono molto attratto da situazioni nuove e inattese", trait: "O", rev: true },
+    { id: 18, text: "Ho sempre risolto immediatamente ogni problema", trait: "L", rev: false },
+    { id: 19, text: "Non mi piacciono gli ambienti di lavoro in cui c'è molta competizione", trait: "E", rev: true },
+    { id: 20, text: "Porto fino in fondo le decisioni che ho preso", trait: "C", rev: false },
+    { id: 21, text: "Non è facile che qualcosa o qualcuno mi faccia perdere la pazienza", trait: "S", rev: false },
+    { id: 22, text: "Mi piace mescolarmi alla gente", trait: "E", rev: false },
+    { id: 23, text: "Ogni novità mi affascina", trait: "O", rev: false },
+    { id: 24, text: "Non mi sono mai impaurito di fronte ad un pericolo, anche se molto grave", trait: "L", rev: false },
+    { id: 25, text: "Tendo a decidere con rapidità", trait: "E", rev: false },
+    { id: 26, text: "Prima di prendere eventuali iniziative, prendo tempo nel valutare le possibili conseguenze", trait: "C", rev: false },
+    { id: 27, text: "Non credo di essere una persona ansiosa", trait: "S", rev: false },
+    { id: 28, text: "Di fronte alle disgrazie dei miei amici mi capita di non capire come comportarmi", trait: "A", rev: true },
+    { id: 29, text: "Ho una memoria di ferro", trait: "O", rev: false },
+    { id: 30, text: "Sono sempre stato assolutamente sicuro delle mie azioni", trait: "L", rev: false },
+    { id: 31, text: "Nel lavoro non do particolare importanza a rendere meglio di altri", trait: "E", rev: true },
+    { id: 32, text: "Non mi piace vivere in maniera troppo metodica e ordinata", trait: "C", rev: true },
+    { id: 33, text: "Mi sento vulnerabile alle critiche altrui", trait: "S", rev: true },
+    { id: 34, text: "Se necessario non mi tiro indietro dal dare aiuto a sconosciuti", trait: "A", rev: false },
+    { id: 35, text: "Le situazioni in continua trasformazione non esercitano su di me alcun fascino", trait: "O", rev: true },
+    { id: 36, text: "Non ho mai disubbidito agli ordini ricevuti, neppure da piccolo", trait: "L", rev: false },
+    { id: 37, text: "Non mi piacciono quelle attività in cui è necessario spostarsi e muoversi continuamente", trait: "E", rev: true },
+    { id: 38, text: "Non credo che sia il caso di applicarsi oltre il limite delle proprie forze, anche se vi è una scadenza da rispettare", trait: "C", rev: true },
+    { id: 39, text: "Sono disposto ad impiegarmi a fondo pur di primeggiare", trait: "E", rev: false },
+    { id: 40, text: "Non mi astengo dal criticare gli altri, specie quando se lo meritano", trait: "A", rev: true },
+    { id: 41, text: "Ritengo che non vi siano dei valori o delle usanze validi in 'eterno'", trait: "O", rev: false },
+    { id: 42, text: "Nell'affrontare un problema non è produttivo tenere in considerazione molti punti di vista differenti", trait: "O", rev: true },
+    { id: 43, text: "In genere non mi irrito anche in situazioni in cui avrei motivi validi per farlo", trait: "S", rev: false },
+    { id: 44, text: "In ogni circostanza mi è facile ammettere di aver sbagliato", trait: "L", rev: false },
+    { id: 45, text: "Quando sono irritato faccio trasparire il mio malumore", trait: "S", rev: true },
+    { id: 46, text: "Metto in atto ciò che ho deciso anche se questo comporta un impegno imprevisto", trait: "C", rev: false },
+    { id: 47, text: "Non perdo tempo nell'acquisire conoscenze che non sono strettamente attinenti al mio campo di interesse", trait: "O", rev: true },
+    { id: 48, text: "So quasi sempre come venire in contro alle esigenze altrui", trait: "A", rev: false },
+    { id: 49, text: "Continuo a portare avanti le attività intraprese anche quando i risultati iniziali sembrano negativi", trait: "C", rev: false },
+    { id: 50, text: "Non mi capita spesso di sentirmi solo e triste", trait: "S", rev: false },
+    { id: 51, text: "Non mi piace fare più attività contemporaneamente", trait: "E", rev: true },
+    { id: 52, text: "Di solito ho un atteggiamento cordiale anche con persone per le quali provo una certa antipatia", trait: "A", rev: false },
+    { id: 53, text: "Spesso sono del tutto assorbito dai miei impegni e dalle mie attività", trait: "C", rev: false },
+    { id: 54, text: "Quando qualcosa blocca i miei progetti non insisto a perseguirli e ne intraprendo altri", trait: "C", rev: true },
+    { id: 55, text: "Non mi interessano i programmi televisivi troppo 'impegnativi'", trait: "O", rev: true },
+    { id: 56, text: "Sono una persona che va sempre in cerca di nuove esperienze", trait: "O", rev: false },
+    { id: 57, text: "Mi dà molto fastidio il disordine", trait: "C", rev: false },
+    { id: 58, text: "Non sono solito reagire in maniera impulsiva", trait: "S", rev: false },
+    { id: 59, text: "Trovo sempre validi argomenti per sostenere i miei motivi e persuadere gli altri della loro validità", trait: "E", rev: false },
+    { id: 60, text: "Mi piace tenermi informato anche di argomenti che sono distanti dai miei ambiti di competenza", trait: "O", rev: false },
+    { id: 61, text: "Non do molta importanza a mettere in mostra le mie capacità", trait: "E", rev: true },
+    { id: 62, text: "Il mio umore è soggetto a frequenti oscillazioni", trait: "S", rev: true },
+    { id: 63, text: "A volte mi capita di arrabbiarmi per cose di poco conto", trait: "S", rev: true },
+    { id: 64, text: "Non concedo facilmente un prestito anche a persone che conosco bene", trait: "A", rev: true },
+    { id: 65, text: "Non mi piacciono le comitive numerose", trait: "E", rev: true },
+    { id: 66, text: "Di solito non organizzo la mia vita fin nei minimi particolari", trait: "C", rev: true },
+    { id: 67, text: "Non mi hanno mai interessato i modi di vita e i costumi di alti popoli", trait: "O", rev: true },
+    { id: 68, text: "Non esito a dire ciò che penso", trait: "E", rev: false },
+    { id: 69, text: "Spesso mi capita di essere agitato", trait: "S", rev: true },
+    { id: 70, text: "In genere non è il caso di mostrarsi sensibili alle difficoltà altrui", trait: "A", rev: true },
+    { id: 71, text: "Nelle riunioni non mi preoccupo in modo particolare di attrarre l'attenzione", trait: "E", rev: true },
+    { id: 72, text: "Credo che un problema possa essere risolto in modi molto diversi", trait: "O", rev: false },
+    { id: 73, text: "Se ritengo di avere ragione mi preoccupo di convincere gli altri del mio punto di vista, anche se ciò può costare tempo ed energia", trait: "E", rev: false },
+    { id: 74, text: "Di solito non tendo a fidarmi eccessivamente del mio prossimo", trait: "A", rev: true },
+    { id: 75, text: "Difficilmente desisto da un'attività che ho intrapreso", trait: "C", rev: false },
+    { id: 76, text: "Di solito non perdo la calma", trait: "S", rev: false },
+    { id: 77, text: "Non dedico molto tempo alla lettura", trait: "O", rev: true },
+    { id: 78, text: "Non sono solito conversare con eventuali compagni di viaggio", trait: "E", rev: true },
+    { id: 79, text: "A volte sono stato scrupoloso da poter apparire noioso", trait: "C", rev: false },
+    { id: 80, text: "Mi sono sempre comportato in maniera totalmente disinteressata", trait: "L", rev: false },
+    { id: 81, text: "Non ho difficoltà a controllare i miei sentimenti", trait: "S", rev: false },
+    { id: 82, text: "Non sono mai stato un perfezionista", trait: "C", rev: true },
+    { id: 83, text: "In diverse circostanze mi è capitato di comportarmi in modo impulsivo", trait: "S", rev: true },
+    { id: 84, text: "Non mi è mai capitato di alzare la voce o di litigare con qualcuno", trait: "L", rev: false },
+    { id: 85, text: "È inutile impegnarsi ad oltranza perché la perfezione non si raggiunge mai", trait: "C", rev: true },
+    { id: 86, text: "Tengo in grande considerazione il punto di vista dei miei colleghi", trait: "A", rev: false },
+    { id: 87, text: "Le scienze mi hanno sempre appassionato", trait: "O", rev: false },
+    { id: 88, text: "Mi confido volentieri con gli altri", trait: "E", rev: false },
+    { id: 89, text: "Di solito non mi capita di reagire in maniera esagerata anche a forti emozioni", trait: "S", rev: false },
+    { id: 90, text: "Non credo che conoscere la storia serva a tanto", trait: "O", rev: true },
+    { id: 91, text: "Non sono solito reagire alle provocazioni", trait: "S", rev: false },
+    { id: 92, text: "Non c'è nessuna cosa che io abbia fatto, che avrei potuto fare meglio", trait: "L", rev: false },
+    { id: 93, text: "Ritengo che in ogni persona ci sia qualcosa di buono", trait: "A", rev: false },
+    { id: 94, text: "Mi risulta facile parlare con persone che non conosco", trait: "E", rev: false },
+    { id: 95, text: "Non credo che esistano possibilità di convincere gli atri quando non la pensano come noi", trait: "E", rev: true },
+    { id: 96, text: "Se fallisco in un compito, continuo a riprovarci finché non riesco", trait: "C", rev: false },
+    { id: 97, text: "Sono sempre stato affascinato dalle culture molto diverse dalla mia", trait: "O", rev: false },
+    { id: 98, text: "Mi capita spesso di sentirmi nervoso", trait: "S", rev: true },
+    { id: 99, text: "Non sono una persona loquace", trait: "E", rev: true },
+    { id: 100, text: "Non è molto produttivo adeguarsi alle esigenze dei propri colleghi, se ciò comporta un rallentamento dei propri ritmi", trait: "A", rev: true },
+    { id: 101, text: "Ho sempre capito immediatamente ogni cosa che ho letto", trait: "L", rev: false },
+    { id: 102, text: "Sono sempre sicuro di me stesso", trait: "S", rev: false },
+    { id: 103, text: "Non capisco cosa spinga le persone a comportarsi in maniera diversa dalla media", trait: "O", rev: true },
+    { id: 104, text: "Mi infastidisce molto essere disturbato mentre sto facendo qualcosa che mi interessa", trait: "C", rev: false },
+    { id: 105, text: "Mi piace molto vedere i programmi di informazione culturale e/o scientifica", trait: "O", rev: false },
+    { id: 106, text: "Prima di consegnare un lavoro dedico molto tempo alla sua revisione", trait: "C", rev: false },
+    { id: 107, text: "Se le cose non vanno subito per il verso giusto, non insisto più di tanto", trait: "C", rev: true },
+    { id: 108, text: "Se è necessario non esito a dire agli altri di pensare ai loro affari", trait: "A", rev: true },
+    { id: 109, text: "Se una mia attività può risultare sgradita a qualcuno, sicuramente vi rinuncio", trait: "A", rev: false },
+    { id: 110, text: "Quando un lavoro è terminato non sto a rivedere ogni minimo dettaglio", trait: "C", rev: true },
+    { id: 111, text: "Sono convinto che si ottengono risultati migliori cooperando piuttosto che mettendosi in competizione", trait: "A", rev: false },
+    { id: 112, text: "Preferisco leggere piuttosto che fare un'attività sportiva", trait: "O", rev: false },
+    { id: 113, text: "Non ho mai criticato nessuno", trait: "L", rev: false },
+    { id: 114, text: "Affronto ogni mia esperienza con grande entusiasmo", trait: "E", rev: false },
+    { id: 115, text: "Sono soddisfatto solo quando vedo i risultati di ciò che avevo programmato", trait: "C", rev: false },
+    { id: 116, text: "Quando vengo criticato non riesco a trattenermi dal chiedere delle giustificazioni", trait: "S", rev: true },
+    { id: 117, text: "Non si ottiene nulla nella vita senza essere competitivi", trait: "E", rev: false },
+    { id: 118, text: "Cerco sempre di vedere ogni cosa da angolature differenti", trait: "O", rev: false },
+    { id: 119, text: "Anche in situazioni estremamente difficili, non perdo il controllo", trait: "S", rev: false },
+    { id: 120, text: "A volte anche piccole difficoltà hanno il potere di farmi preoccupare", trait: "S", rev: true },
+    { id: 121, text: "Generalmente non mi comporto in maniera espansiva con estranei", trait: "E", rev: true },
+    { id: 122, text: "Di solito non cambio umore improvvisamente", trait: "S", rev: false },
+    { id: 123, text: "Non mi piacciono le attività che comportano del rischio", trait: "E", rev: true },
+    { id: 124, text: "Non ho mai provato molto interesse per le materie scientifiche e/o filosofiche", trait: "O", rev: true },
+    { id: 125, text: "Quando comincio a fare qualcosa, non so mai se la porterò a compimento", trait: "C", rev: true },
+    { id: 126, text: "Generalmente ho fiducia negli altri e nelle loro intenzioni", trait: "A", rev: false },
+    { id: 127, text: "Ho provato sempre simpatia nei confronti di ogni persona che ho conosciuto", trait: "L", rev: false },
+    { id: 128, text: "Con certe persone non bisogna essere troppo tolleranti", trait: "A", rev: true },
+    { id: 129, text: "Di solito curo ogni cosa nei minimi particolari", trait: "C", rev: false },
+    { id: 130, text: "Non è lavorando in gruppo che si realizzano in modo migliore le proprie competenze", trait: "A", rev: true },
+    { id: 131, text: "Non vado in cerca di una soluzione nuova a quei problemi per i quali ne è già disponibile una efficace", trait: "O", rev: true },
+    { id: 132, text: "Non credo che sia utile perdere tempo nel controllare più volte quello che si è fatto", trait: "C", rev: true }
+];
+
+const labels = [
+    "ASSOLUTAMENTE FALSO PER ME",
+    "PIUTTOSTO FALSO PER ME",
+    "NE’ VERO NE’ FALSO",
+    "ABBASTANZA VERO PER ME",
+    "ASSOLUTAMENTE VERO PER ME"
+];
+
+const traitNames = {
+    "E": "Energia (Estroversione)",
+    "A": "Amicalità",
+    "C": "Coscienziosità",
+    "S": "Stabilità Emotiva",
+    "O": "Apertura Mentale",
+    "L": "Scala Lie (Affidabilità)"
+};
+
+let curIdx = 0;
+let answers = {};
+
+// Rendering Domanda
+function render() {
+    const q = questions[curIdx];
+    const progress = Math.round((Object.keys(answers).length / questions.length) * 100);
+    
+    document.getElementById('progress-text').innerText = `Domanda ${curIdx + 1} / ${questions.length}`;
+    document.getElementById('percentage').innerText = `${progress}% completato`;
+    document.getElementById('bar').style.width = `${((curIdx + 1) / questions.length) * 100}%`;
+    document.getElementById('q-text').innerText = q.text;
+    
+    const box = document.getElementById('options-box');
+    box.innerHTML = '';
+    labels.forEach((text, i) => {
+        const val = i + 1;
+        const btn = document.createElement('button');
+        btn.className = `option-btn ${answers[q.id] === val ? 'selected' : ''}`;
+        btn.innerHTML = `<span class="kb-shortcut">${val}</span> ${text}`;
+        btn.onclick = () => { answers[q.id] = val; setTimeout(next, 150); };
+        box.appendChild(btn);
+    });
+
+    document.getElementById('prev-btn').disabled = curIdx === 0;
+    document.getElementById('next-btn').innerText = curIdx === questions.length - 1 ? "Vedi Risultati" : "Avanti";
+}
+
+// Navigazione
+function changeQ(dir) {
+    if (dir === 1) {
+        const missingIndices = questions.map((q, i) => !answers[q.id] ? i : null).filter(i => i !== null);
+        if (missingIndices.length > 0) {
+            const nextEmpty = missingIndices.find(i => i > curIdx);
+            if (nextEmpty !== undefined) {
+                curIdx = nextEmpty;
+                render();
+                return; 
+            } else {
+                const firstEmpty = missingIndices[0];
+                if (firstEmpty < curIdx) {
+                    curIdx = firstEmpty;
+                    render();
+                    return;
+                }
+            }
+        }
+    }
+
+    if (dir === 1 && curIdx === questions.length - 1) {
+        showResults();
+    } else {
+        curIdx = Math.max(0, Math.min(questions.length - 1, curIdx + dir));
+        render();
+    }
+}
+
+function next() { 
+    changeQ(1);
+}
+
+// Calcolo Risultati
+function calculateResults() {
+    let totals = { E:0, A:0, C:0, S:0, O:0, L:0 };
+    let counts = { E:0, A:0, C:0, S:0, O:0, L:0 };
+    questions.forEach(q => {
+        let score = answers[q.id];
+        if (score) {
+            let finalScore = q.rev ? (6 - score) : score;
+            totals[q.trait] += finalScore;
+            counts[q.trait]++;
+        }
+    });
+    let res = {};
+    for (let t in totals) res[t] = (totals[t] / (counts[t] || 1)).toFixed(2);
+    return res;
+}
+
+// Mostra Risultati
+function showResults() {
+    const scores = calculateResults();
+    const unansweredIds = questions.filter(q => !answers[q.id]).map(q => q.id);
+
+    document.getElementById('quiz-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.remove('hidden');
+
+    const container = document.getElementById('traits-container');
+    container.innerHTML = '';
+    
+    if (unansweredIds.length > 0) {
+        container.innerHTML += `
+            <div style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #ffeeba;">
+                <strong>Attenzione:</strong> Mancano ${unansweredIds.length} risposte.
+                <button onclick="jumpToFirstMissing()" style="display:block; margin-top:10px; padding:8px; cursor:pointer; background:#856404; color:white; border:none; border-radius:5px;">
+                    Vai alla prima domanda mancante
+                </button>
+            </div>`;
+    }
+
+    for (let t in scores) {
+        const pct = (scores[t] / 5) * 100;
+        container.innerHTML += `
+            <div class="trait-result">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.9rem">
+                    <span>${traitNames[t]}</span>
+                    <span>${scores[t]} / 5.00</span>
+                </div>
+                <div class="bar-container"><div class="bar-fill" style="width:${pct}%"></div></div>
+            </div>`;
+    }
+
+    const list = document.getElementById('review-list');
+    list.innerHTML = '';
+    questions.forEach((q, index) => {
+        const isMissing = !answers[q.id];
+        const div = document.createElement('div');
+        div.className = 'review-item';
+        if (isMissing) div.style.background = '#fff0f0';
+        div.onclick = () => { curIdx = index; backToQuiz(); };
+        div.innerHTML = `
+            <span>
+                <strong style="color:${isMissing ? 'red' : 'inherit'}">${q.id}.</strong> 
+                ${q.text.substring(0,50)}...
+            </span> 
+            <span style="color:${isMissing ? 'red' : 'var(--primary)'}; font-weight:bold">
+                ${answers[q.id] || 'MANCANTE'}
+            </span>`;
+        list.appendChild(div);
+    });
+}
+
+function jumpToFirstMissing() {
+    const idx = questions.findIndex(q => !answers[q.id]);
+    if (idx !== -1) {
+        curIdx = idx;
+        backToQuiz();
+    }
+}
+
+function backToQuiz() {
+    document.getElementById('quiz-screen').classList.remove('hidden');
+    document.getElementById('result-screen').classList.add('hidden');
+    render();
+}
+
+function downloadReport() {
+    const scores = calculateResults();
+    let text = "REPORT TEST BIG FIVE (132 DOMANDE)\n" + "=".repeat(40) + "\n\n";
+    for (let t in scores) text += `- ${traitNames[t]}: ${scores[t]}\n`;
+    text += "\nDETTAGLIO RISPOSTE:\n";
+    questions.forEach(q => {
+        text += `Domanda ${q.id}: [${answers[q.id] || 'N/A'}] - ${q.text}\n`;
+    });
+    const blob = new Blob([text], {type: 'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Report_BigFive.txt';
+    a.click();
+}
+
+window.addEventListener('keydown', (e) => {
+    if (document.getElementById('quiz-screen').classList.contains('hidden')) return;
+    const key = parseInt(e.key);
+    if (key >= 1 && key <= 5) {
+        answers[questions[curIdx].id] = key;
+        render();
+        setTimeout(next, 200);
+    }
+    if (e.key === "ArrowRight") next();
+    if (e.key === "ArrowLeft") changeQ(-1);
+});
+
+// Avvio iniziale
+
+render();
+</script>
+</body>
+</html>
